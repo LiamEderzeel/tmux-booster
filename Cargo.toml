@@ -8,5 +8,4 @@ edition = "2021"
 [dependencies]
 clap = { version = "4.3.22", features = ["derive"] }
 console = "0.15.7"
-dialoguer = { version = "0.10.4", features = ["fuzzy-select"] }
 rust_fzf = "0.1.2"
