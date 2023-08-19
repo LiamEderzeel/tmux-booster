@@ -27,11 +27,6 @@ fn get_directories(directories: Vec<String>) -> Result<Vec<PathBuf>, Box<dyn Err
                 .filter(|r| r.is_dir()) // Filter out non-folders
                 .collect(),
         );
-
-        // match fs::read_dir(Path::new(directory)) {
-        //     Ok(results) => {}
-        //     Err(error) => panic!("Something whent wrong {:?}", error),
-        // };
     }
 
     Ok(paths.into_iter().flatten().collect())
