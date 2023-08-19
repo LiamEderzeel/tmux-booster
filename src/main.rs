@@ -6,9 +6,12 @@ use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 
 #[derive(Parser)]
-#[command(author = "Liam Ederzeel", about = "", long_about = None)]
+#[command(author, about, long_about = None)]
 struct Cli {
-    #[arg(short = 'd')]
+    #[arg(
+        short = 'd',
+        help = "path or paths to directory containing project directories."
+    )]
     directories: Vec<String>,
 }
 
