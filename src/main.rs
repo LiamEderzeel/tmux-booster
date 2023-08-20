@@ -35,7 +35,7 @@ fn get_directories(directories: Vec<String>) -> Result<Vec<PathBuf>, Box<dyn Err
     Ok(paths.into_iter().flatten().collect())
 }
 
-fn list_tmux_sessions() -> Result<Vec<String>, Box<dyn Error>> {
+fn tmux_list_sessions() -> Result<Vec<String>, Box<dyn Error>> {
     let output = Command::new("tmux")
         .arg("list-session")
         .arg("-F")
@@ -115,7 +115,7 @@ fn main() {
         Err(error) => panic!("help {}", error),
     };
     let options = options_from_path(paths.clone());
-    let live_sessions = match list_tmux_sessions() {
+    let live_sessions = match tmux_list_sessions() {
         Ok(list) => list,
         Err(error) => panic!("help {}", error),
     };
