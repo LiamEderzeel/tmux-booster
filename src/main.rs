@@ -18,8 +18,6 @@ struct Cli {
 fn get_directories(directories: Vec<String>) -> Result<Vec<PathBuf>, Box<dyn Error>> {
     let mut paths: Vec<Vec<PathBuf>> = vec![];
 
-    println!("{:?}", directories);
-
     for directory in &directories {
         let res = fs::read_dir(Path::new(directory))?;
 
