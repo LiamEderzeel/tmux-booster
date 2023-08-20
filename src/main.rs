@@ -55,6 +55,36 @@ fn list_tmux_sessions() -> Result<Vec<String>, Box<dyn Error>> {
     Ok(res)
 }
 
+fn tmux_create_session(name: &String, path: &PathBuf) {
+    match Command::new("tmux")
+        .arg("new-session")
+        .arg("-ds")
+        .arg(&name)
+        .arg("-c")
+        .arg(&path)
+        .spawn()
+        .unwrap()
+        .wait()
+    {
+        Ok(_) => (),
+        Err(error) => panic!("help {:?}", error),
+    }
+}
+
+fn tmux_swith_session(name: &String) {
+    match Command::new("tmux")
+        .arg("switch")
+        .arg("-t")
+        .arg(&name)
+        .spawn()
+        .unwrap()
+        .wait()
+    {
+        Ok(_) => (),
+        Err(error) => panic!("help {:?}", error),
+    }
+}
+
 fn options_from_path(paths: Vec<PathBuf>) -> Vec<String> {
     paths
         .into_iter()
@@ -107,41 +137,9 @@ fn main() {
     };
 
     if live_sessions.contains(&selection) {
-        match Command::new("tmux")
-            .arg("switch")
-            .arg("-t")
-            .arg("backend")
-            .spawn()
-            .unwrap()
-            .wait()
-        {
-            Ok(_) => (),
-            Err(error) => panic!("help {:?}", error),
-        }
+        tmux_swith_session(&project_name);
     } else {
-        match Command::new("tmux")
-            .arg("new-session")
-            .arg("-ds")
-            .arg(&project_name)
-            .arg("-c")
-            .arg(&project_path)
-            .spawn()
-            .unwrap()
-            .wait()
-        {
-            Ok(_) => (),
-            Err(error) => panic!("help {:?}", error),
-        }
-        match Command::new("tmux")
-            .arg("switch")
-            .arg("-t")
-            .arg(&project_name)
-            .spawn()
-            .unwrap()
-            .wait()
-        {
-            Ok(_) => (),
-            Err(error) => panic!("help {:?}", error),
-        }
+        tmux_create_session(&project_name, &project_path);
+        tmux_swith_session(&project_name);
     }
 }
