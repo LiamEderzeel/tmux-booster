@@ -33,6 +33,20 @@ fn get_directories(directories: Vec<String>) -> Result<Vec<PathBuf>, Box<dyn Err
     Ok(paths.into_iter().flatten().collect())
 }
 
+fn tmux_is_attached() -> Result<bool, Box<dyn Error>> {
+    let output = Command::new("echo")
+        .arg("$TMUX")
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()?
+        .wait_with_output()?;
+
+    let raw_output = String::from_utf8_lossy(&output.stdout);
+    let res = raw_output.len() > 0;
+
+    Ok(res)
+}
+
 fn tmux_list_sessions() -> Result<Vec<String>, Box<dyn Error>> {
     let output = Command::new("tmux")
         .arg("list-session")
@@ -72,6 +86,20 @@ fn tmux_create_session(name: &String, path: &PathBuf) {
 fn tmux_swith_session(name: &String) {
     match Command::new("tmux")
         .arg("switch")
+        .arg("-t")
+        .arg(&name)
+        .spawn()
+        .unwrap()
+        .wait()
+    {
+        Ok(_) => (),
+        Err(error) => panic!("help {:?}", error),
+    }
+}
+
+fn tmux_attach_session(name: &String) {
+    match Command::new("tmux")
+        .arg("attach")
         .arg("-t")
         .arg(&name)
         .spawn()
@@ -134,10 +162,20 @@ fn main() {
         }
     };
 
-    if live_sessions.contains(&selection) {
-        tmux_swith_session(&project_name);
-    } else {
+    let is_attached = match tmux_is_attached() {
+        Ok(is_attached) => is_attached,
+        Err(error) => panic!("help {}", error),
+    };
+
+    if !live_sessions.contains(&selection) {
+        // todo check if attached
         tmux_create_session(&project_name, &project_path);
+        tmux_swith_session(&project_name);
+    }
+
+    if is_attached {
+        tmux_attach_session(&project_name);
+    } else {
         tmux_swith_session(&project_name);
     }
 }
