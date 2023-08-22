@@ -114,7 +114,19 @@ fn tmux_attach_session(name: &String) {
 fn options_from_path(paths: Vec<PathBuf>) -> Vec<String> {
     paths
         .into_iter()
-        .map(|r| r.file_name().unwrap().to_str().unwrap().to_owned())
+        .map(|r| {
+            format!(
+                "{}/{}",
+                r.parent()
+                    .unwrap()
+                    .file_name()
+                    .unwrap()
+                    .to_str()
+                    .unwrap()
+                    .to_owned(),
+                r.file_name().unwrap().to_str().unwrap().to_owned()
+            )
+        })
         .collect()
 }
 
