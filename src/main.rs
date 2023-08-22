@@ -33,6 +33,27 @@ fn get_directories(directories: Vec<String>) -> Result<Vec<PathBuf>, Box<dyn Err
     Ok(paths.into_iter().flatten().collect())
 }
 
+fn tmux_attached_session_name() -> Result<String, Box<dyn Error>> {
+    // tmux display-message -p '#S'
+    let output = Command::new("tmux")
+        .arg("display-message")
+        .arg("-p")
+        .arg("#S")
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()?
+        .wait_with_output()?;
+
+    let raw_output = String::from_utf8_lossy(&output.stdout);
+    let mut res = raw_output.to_string();
+
+    let len = res.trim_end_matches(&['\r', '\n'][..]).len();
+
+    res.truncate(len);
+
+    Ok(res)
+}
+
 fn tmux_is_attached() -> Result<bool, Box<dyn Error>> {
     let output = Command::new("echo")
         .arg("$TMUX")
@@ -130,11 +151,17 @@ fn options_from_path(paths: Vec<PathBuf>) -> Vec<String> {
         .collect()
 }
 
-fn display_options_from_options(options: Vec<String>, live_sessions: &Vec<String>) -> Vec<String> {
+fn display_options_from_options(
+    options: Vec<String>,
+    live_sessions: &Vec<String>,
+    attach_session_name: &String,
+) -> Vec<String> {
     options
         .into_iter()
         .map(|r| {
-            if live_sessions.contains(&r) {
+            if attach_session_name == &r {
+                return format!("[33m{t}[0m", t = r);
+            } else if live_sessions.contains(&r) {
                 return format!("[34m{t}[0m", t = r);
             } else {
                 return r;
@@ -157,7 +184,12 @@ fn main() {
         Ok(list) => list,
         Err(error) => panic!("help {}", error),
     };
-    let display_options = display_options_from_options(options.clone(), &live_sessions);
+    let attach_session_name = match tmux_attached_session_name() {
+        Ok(attach_session_name) => attach_session_name,
+        Err(error) => panic!("help {}", error),
+    };
+    let display_options =
+        display_options_from_options(options.clone(), &live_sessions, &attach_session_name);
     let selection = select(display_options.clone(), vec!["--ansi".to_string()]);
 
     let project_path;
