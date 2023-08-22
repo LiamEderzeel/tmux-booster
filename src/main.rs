@@ -212,14 +212,12 @@ fn main() {
     };
 
     if !live_sessions.contains(&selection) {
-        // todo check if attached
         tmux_create_session(&project_name, &project_path);
-        tmux_swith_session(&project_name);
     }
 
     if is_attached {
-        tmux_attach_session(&project_name);
-    } else {
         tmux_swith_session(&project_name);
+    } else {
+        tmux_attach_session(&project_name);
     }
 }
