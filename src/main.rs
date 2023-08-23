@@ -1,9 +1,9 @@
 use clap::Parser;
 use rust_fzf::select;
 use std::error::Error;
-use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
+use std::{env, fs};
 
 #[derive(Parser)]
 #[command(author, about, long_about = None)]
@@ -54,18 +54,12 @@ fn tmux_attached_session_name() -> Result<String, Box<dyn Error>> {
     Ok(res)
 }
 
-fn tmux_is_attached() -> Result<bool, Box<dyn Error>> {
-    let output = Command::new("echo")
-        .arg("$TMUX")
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()?
-        .wait_with_output()?;
-
-    let raw_output = String::from_utf8_lossy(&output.stdout);
-    let res = raw_output.len() > 0;
-
-    Ok(res)
+fn tmux_is_attached() -> bool {
+    if let Some(_) = env::var_os("TMUX") {
+        true
+    } else {
+        false
+    }
 }
 
 fn tmux_list_sessions() -> Result<Vec<String>, Box<dyn Error>> {
@@ -206,15 +200,13 @@ fn main() {
         }
     };
 
-    let is_attached = match tmux_is_attached() {
-        Ok(is_attached) => is_attached,
-        Err(error) => panic!("help {}", error),
-    };
+    let is_attached = tmux_is_attached();
 
     if !live_sessions.contains(&selection) {
         tmux_create_session(&project_name, &project_path);
     }
 
+    println!("{}", is_attached);
     if is_attached {
         tmux_swith_session(&project_name);
     } else {
