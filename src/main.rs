@@ -86,7 +86,6 @@ fn tmux_list_sessions() -> Result<Vec<String>, Box<dyn Error>> {
     let raw_output = String::from_utf8_lossy(&output.stdout);
     let res = raw_output
         .split("\n")
-        .into_iter()
         .map(str::to_string)
         .collect::<Vec<String>>();
 
