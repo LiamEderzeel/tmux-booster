@@ -12,7 +12,22 @@ struct Cli {
         short = 'd',
         help = "path or paths to directory containing project directories."
     )]
-    directories: Vec<String>,
+    project_directories: Vec<String>,
+
+    #[arg(
+        short = 'p',
+        help = "path or paths to project directory."
+    )]
+    projects: Vec<String>
+}
+
+fn get_project_directories(directories: Vec<String>) -> Result<Vec<PathBuf>, Box<dyn Error>> {
+    let mut paths: Vec<PathBuf> = vec![];
+
+    for directory in &directories {
+        paths.push(PathBuf::from(directory));
+    }
+Ok(paths)
 }
 
 fn get_directories(directories: Vec<String>) -> Result<Vec<PathBuf>, Box<dyn Error>> {
@@ -55,11 +70,7 @@ fn tmux_attached_session_name() -> Result<String, Box<dyn Error>> {
 }
 
 fn tmux_is_attached() -> bool {
-    if let Some(_) = env::var_os("TMUX") {
-        true
-    } else {
-        false
-    }
+    env::var_os("TMUX").is_some()
 }
 
 fn tmux_list_sessions() -> Result<Vec<String>, Box<dyn Error>> {
@@ -86,9 +97,9 @@ fn tmux_create_session(name: &String, path: &PathBuf) {
     match Command::new("tmux")
         .arg("new-session")
         .arg("-ds")
-        .arg(&name)
+        .arg(name)
         .arg("-c")
-        .arg(&path)
+        .arg(path)
         .spawn()
         .unwrap()
         .wait()
@@ -98,11 +109,12 @@ fn tmux_create_session(name: &String, path: &PathBuf) {
     }
 }
 
-fn tmux_swith_session(name: &String) {
+fn tmux_swith_session(name: &str) {
+    let tmux_name = name.replace('.', "_");
     match Command::new("tmux")
         .arg("switch")
         .arg("-t")
-        .arg(&name)
+        .arg(&tmux_name)
         .spawn()
         .unwrap()
         .wait()
@@ -112,11 +124,12 @@ fn tmux_swith_session(name: &String) {
     }
 }
 
-fn tmux_attach_session(name: &String) {
+fn tmux_attach_session(name: &str) {
+    let tmux_name = name.replace('.', "_");
     match Command::new("tmux")
         .arg("attach")
         .arg("-t")
-        .arg(&name)
+        .arg(&tmux_name)
         .spawn()
         .unwrap()
         .wait()
@@ -167,13 +180,23 @@ fn display_options_from_options(
 fn main() {
     let cli = Cli::parse();
 
-    let directories = cli.directories;
+    let directories = cli.project_directories;
+    let projects = cli.projects;
 
-    let paths = match get_directories(directories) {
+    let project_paths = match get_project_directories(projects) {
         Ok(paths) => paths,
         Err(error) => panic!("help {}", error),
     };
+
+    let project_dir_paths = match get_directories(directories) {
+        Ok(paths) => paths,
+        Err(error) => panic!("help {}", error),
+    };
+
+    let paths: Vec<PathBuf> = project_paths.into_iter().chain(project_dir_paths).collect();
+
     let options = options_from_path(paths.clone());
+
     let live_sessions = match tmux_list_sessions() {
         Ok(list) => list,
         Err(error) => panic!("help {}", error),
@@ -194,7 +217,7 @@ fn main() {
             project_path = &paths[index];
             project_name = &options[index];
         }
-        None => {
+        _none => {
             println!("no index found for selected option");
             std::process::exit(1)
         }
@@ -203,13 +226,13 @@ fn main() {
     let is_attached = tmux_is_attached();
 
     if !live_sessions.contains(&selection) {
-        tmux_create_session(&project_name, &project_path);
+        tmux_create_session(project_name, project_path);
     }
 
     println!("{}", is_attached);
     if is_attached {
-        tmux_swith_session(&project_name);
+        tmux_swith_session(project_name);
     } else {
-        tmux_attach_session(&project_name);
+        tmux_attach_session(project_name);
     }
 }
