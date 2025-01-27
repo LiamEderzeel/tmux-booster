@@ -159,7 +159,7 @@ fn options_from_path(paths: Vec<PathBuf>) -> Vec<String> {
 
 fn display_options_from_options(
     options: Vec<String>,
-    live_sessions: &Vec<String>,
+    live_sessions: &[String],
     attach_session_name: &String,
 ) -> Vec<String> {
     options
