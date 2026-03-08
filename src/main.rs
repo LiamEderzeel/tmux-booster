@@ -1,9 +1,10 @@
 use clap::Parser;
-use rust_fzf::select;
+// use rust_fzf::select;
 use std::error::Error;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::{env, fs};
+use std::io::Write;
 
 #[derive(Parser)]
 #[command(author, about, long_about = None)]
@@ -176,6 +177,33 @@ fn display_options_from_options(
         .collect()
 }
 
+fn select_with_tv(items: Vec<String>) -> Option<String> {
+    let mut child = Command::new("tv")
+        .arg("--ansi")
+        .arg("--source-command")
+        .arg("echo placeholder")  // we'll override via stdin piping trick
+        .arg("--input-header")
+        .arg("Projects")
+        .arg("--no-status-bar")
+        .arg("--no-remote")
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .spawn()
+        .expect("failed to start tv");
+
+    // write items to stdin
+    if let Some(mut stdin) = child.stdin.take() {
+        for item in &items {
+            writeln!(stdin, "{}", item).ok();
+        }
+    }
+
+    let output = child.wait_with_output().expect("failed to wait on tv");
+    let result = String::from_utf8_lossy(&output.stdout).trim().to_string();
+
+    if result.is_empty() { None } else { Some(result) }
+}
+
 fn main() {
     let cli = Cli::parse();
 
@@ -206,12 +234,25 @@ fn main() {
     };
     let display_options =
         display_options_from_options(options.clone(), &live_sessions, &attach_session_name);
-    let selection = select(display_options.clone(), vec!["--ansi".to_string()]);
+    // let selection = select(display_options.clone(), vec!["--ansi".to_string()]);
+    let selection = match select_with_tv(display_options.clone()) {
+        Some(s) => s,
+        None => {
+            println!("no selection made");
+            std::process::exit(1);
+        }
+    };
+
+    let strip_ansi = |s: &str| -> String {
+        let re = regex::Regex::new(r"\x1b\[[0-9;]*m").unwrap();
+        re.replace_all(s, "").to_string()
+    };
+    let clean_selection = strip_ansi(&selection);
 
     let project_path;
     let project_name;
 
-    match options.iter().position(|r| r.eq(&selection)) {
+    match options.iter().position(|r| r.eq(&clean_selection)) {
         Some(index) => {
             project_path = &paths[index];
             project_name = &options[index];

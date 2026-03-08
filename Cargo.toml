@@ -11,4 +11,4 @@ description = "A blazingly fast tmux session launcher and switcher"
 clap = { version = "4.3.22", features = ["derive"] }
 console = "0.15.7"
 rust_fzf = "0.1.2"
-
+regex = "1"
