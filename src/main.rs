@@ -5,9 +5,55 @@ use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::{env, fs};
 use std::io::Write;
+use serde::Deserialize;
+use std::collections::HashSet;
+
+#[derive(Deserialize, Debug, Default)]
+struct Config {
+    #[serde(default)]
+    directory_paths: Vec<String>,
+    #[serde(default)]
+    project_paths: Vec<String>,
+}
+
+fn load_config() -> Config {
+    let config_path = PathBuf::from(std::env::var("HOME").expect("HOME not set"))
+        .join(".config/tmux-booster/config.toml");
+
+    let Ok(contents) = fs::read_to_string(&config_path) else {
+        return Config::default();
+    };
+
+    toml::from_str(&contents).unwrap_or_else(|e| {
+        eprintln!("Warning: failed to parse config file: {}", e);
+        Config::default()
+    })
+}
 
 #[derive(Parser)]
-#[command(author, about, long_about = None)]
+#[command(
+    author,
+    about = "A tmux session manager",
+    long_about = "A tmux session manager.
+
+Configuration file:
+  tmux-booster can be configured via ~/.config/tmux-booster/config.toml
+
+  Example config:
+
+    directory_paths = [
+        \"~/projects\",
+        \"~/work\",
+    ]
+
+    project_paths = [
+        \"~/dotfiles\",
+        \"~/projects/my-app\",
+    ]
+
+  CLI args are merged with the config file. Duplicates are removed.
+  See CONFIG.md for full documentation."
+)]
 struct Cli {
     #[arg(
         short = 'd',
@@ -22,30 +68,40 @@ struct Cli {
     projects: Vec<String>
 }
 
+fn expand_tilde(path: &str) -> String {
+    if let Some(stripped) = path.strip_prefix("~/") {
+        let home = std::env::var("HOME").expect("HOME not set");
+        format!("{}/{}", home, stripped)
+    } else {
+        path.to_string()
+    }
+}
+
 fn get_project_directories(directories: Vec<String>) -> Result<Vec<PathBuf>, Box<dyn Error>> {
     let mut paths: Vec<PathBuf> = vec![];
 
     for directory in &directories {
-        paths.push(PathBuf::from(directory));
+        let expanded = expand_tilde(directory);
+        paths.push(PathBuf::from(expanded));
     }
 Ok(paths)
 }
 
+
 fn get_directories(directories: Vec<String>) -> Result<Vec<PathBuf>, Box<dyn Error>> {
     let mut paths: Vec<Vec<PathBuf>> = vec![];
-
     for directory in &directories {
-        let res = fs::read_dir(Path::new(directory))?;
-
+        let expanded = expand_tilde(directory);
+        let res = fs::read_dir(Path::new(&expanded))
+            .map_err(|e| format!("{} {}", e, expanded))?;  // better error message
         paths.push(
             res.into_iter()
-                .filter(|r| r.is_ok()) // Get rid of Err variants for Result<DirEntry>
-                .map(|r| r.unwrap().path()) // This is safe, since we only have the Ok variants
-                .filter(|r| r.is_dir()) // Filter out non-folders
+                .filter(|r| r.is_ok())
+                .map(|r| r.unwrap().path())
+                .filter(|r| r.is_dir())
                 .collect(),
         );
     }
-
     Ok(paths.into_iter().flatten().collect())
 }
 
@@ -206,9 +262,20 @@ fn select_with_tv(items: Vec<String>) -> Option<String> {
 
 fn main() {
     let cli = Cli::parse();
+let config = load_config();
 
-    let directories = cli.project_directories;
-    let projects = cli.projects;
+    // Merge: config provides the base, CLI args are appended
+    let directories: Vec<String> = config
+        .directory_paths
+        .into_iter()
+        .chain(cli.project_directories)
+        .collect();
+
+    let projects: Vec<String> = config
+        .project_paths
+        .into_iter()
+        .chain(cli.projects)
+        .collect();
 
     let project_paths = match get_project_directories(projects) {
         Ok(paths) => paths,
@@ -220,7 +287,11 @@ fn main() {
         Err(error) => panic!("help {}", error),
     };
 
-    let paths: Vec<PathBuf> = project_paths.into_iter().chain(project_dir_paths).collect();
+    let paths: Vec<PathBuf> = project_paths.into_iter().chain(project_dir_paths)
+        .collect::<HashSet<_>>()
+        .into_iter()
+        .collect();
+    println!("{:?}", paths);
 
     let options = options_from_path(paths.clone());
 
