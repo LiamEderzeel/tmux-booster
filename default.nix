@@ -6,4 +6,5 @@ pkgs.rustPlatform.buildRustPackage rec {
   version = manifest.version;
   cargoLock.lockFile = ./Cargo.lock;
   src = pkgs.lib.cleanSource ./.;
+  buildInputs = with pkgs; [ television ];
 }
