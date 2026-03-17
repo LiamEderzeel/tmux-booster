@@ -1,12 +1,12 @@
 use clap::Parser;
 // use rust_fzf::select;
+use serde::Deserialize;
+use std::collections::HashSet;
 use std::error::Error;
+use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::{env, fs};
-use std::io::Write;
-use serde::Deserialize;
-use std::collections::HashSet;
 
 #[derive(Deserialize, Debug, Default)]
 struct Config {
@@ -61,11 +61,8 @@ struct Cli {
     )]
     project_directories: Vec<String>,
 
-    #[arg(
-        short = 'p',
-        help = "path or paths to project directory."
-    )]
-    projects: Vec<String>
+    #[arg(short = 'p', help = "path or paths to project directory.")]
+    projects: Vec<String>,
 }
 
 fn expand_tilde(path: &str) -> String {
@@ -84,16 +81,14 @@ fn get_project_directories(directories: Vec<String>) -> Result<Vec<PathBuf>, Box
         let expanded = expand_tilde(directory);
         paths.push(PathBuf::from(expanded));
     }
-Ok(paths)
+    Ok(paths)
 }
-
 
 fn get_directories(directories: Vec<String>) -> Result<Vec<PathBuf>, Box<dyn Error>> {
     let mut paths: Vec<Vec<PathBuf>> = vec![];
     for directory in &directories {
         let expanded = expand_tilde(directory);
-        let res = fs::read_dir(Path::new(&expanded))
-            .map_err(|e| format!("{} {}", e, expanded))?;  // better error message
+        let res = fs::read_dir(Path::new(&expanded)).map_err(|e| format!("{} {}", e, expanded))?; // better error message
         paths.push(
             res.into_iter()
                 .filter(|r| r.is_ok())
@@ -237,7 +232,7 @@ fn select_with_tv(items: Vec<String>) -> Option<String> {
     let mut child = Command::new("tv")
         .arg("--ansi")
         .arg("--source-command")
-        .arg("echo placeholder")  // we'll override via stdin piping trick
+        .arg("echo placeholder") // we'll override via stdin piping trick
         .arg("--input-header")
         .arg("Projects")
         .arg("--no-status-bar")
@@ -257,12 +252,16 @@ fn select_with_tv(items: Vec<String>) -> Option<String> {
     let output = child.wait_with_output().expect("failed to wait on tv");
     let result = String::from_utf8_lossy(&output.stdout).trim().to_string();
 
-    if result.is_empty() { None } else { Some(result) }
+    if result.is_empty() {
+        None
+    } else {
+        Some(result)
+    }
 }
 
 fn main() {
     let cli = Cli::parse();
-let config = load_config();
+    let config = load_config();
 
     // Merge: config provides the base, CLI args are appended
     let directories: Vec<String> = config
@@ -287,11 +286,12 @@ let config = load_config();
         Err(error) => panic!("help {}", error),
     };
 
-    let paths: Vec<PathBuf> = project_paths.into_iter().chain(project_dir_paths)
+    let paths: Vec<PathBuf> = project_paths
+        .into_iter()
+        .chain(project_dir_paths)
         .collect::<HashSet<_>>()
         .into_iter()
         .collect();
-    println!("{:?}", paths);
 
     let options = options_from_path(paths.clone());
 
