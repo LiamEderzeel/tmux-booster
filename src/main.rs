@@ -144,11 +144,20 @@ fn tmux_list_sessions() -> Result<Vec<String>, Box<dyn Error>> {
     Ok(res)
 }
 
-fn tmux_create_session(name: &String, path: &PathBuf) {
+fn tmux_target_name(name: &str) -> String {
+    // tmux uses '.' as the session:window.pane separator, so a literal dot in
+    // a session name breaks target lookups (e.g. switch/attach) even though
+    // session creation accepts it. Sanitize consistently everywhere a tmux
+    // session name is created or targeted.
+    name.replace('.', "_")
+}
+
+fn tmux_create_session(name: &str, path: &PathBuf) {
+    let tmux_name = tmux_target_name(name);
     match Command::new("tmux")
         .arg("new-session")
         .arg("-ds")
-        .arg(name)
+        .arg(&tmux_name)
         .arg("-c")
         .arg(path)
         .spawn()
@@ -161,7 +170,7 @@ fn tmux_create_session(name: &String, path: &PathBuf) {
 }
 
 fn tmux_swith_session(name: &str) {
-    let tmux_name = name.replace('.', "_");
+    let tmux_name = tmux_target_name(name);
     match Command::new("tmux")
         .arg("switch")
         .arg("-t")
@@ -176,7 +185,7 @@ fn tmux_swith_session(name: &str) {
 }
 
 fn tmux_attach_session(name: &str) {
-    let tmux_name = name.replace('.', "_");
+    let tmux_name = tmux_target_name(name);
     match Command::new("tmux")
         .arg("attach")
         .arg("-t")
@@ -217,9 +226,10 @@ fn display_options_from_options(
     options
         .into_iter()
         .map(|r| {
-            if attach_session_name == &r {
+            let target = tmux_target_name(&r);
+            if attach_session_name == &target {
                 return format!("[33m{t}[0m", t = r);
-            } else if live_sessions.contains(&r) {
+            } else if live_sessions.contains(&target) {
                 return format!("[34m{t}[0m", t = r);
             } else {
                 return r;
@@ -336,7 +346,7 @@ fn main() {
 
     let is_attached = tmux_is_attached();
 
-    if !live_sessions.contains(&selection) {
+    if !live_sessions.contains(&tmux_target_name(project_name)) {
         tmux_create_session(project_name, project_path);
     }
 
