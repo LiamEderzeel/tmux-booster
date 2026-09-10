@@ -74,14 +74,11 @@ fn expand_tilde(path: &str) -> String {
     }
 }
 
-fn get_project_directories(directories: Vec<String>) -> Result<Vec<PathBuf>, Box<dyn Error>> {
-    let mut paths: Vec<PathBuf> = vec![];
-
-    for directory in &directories {
-        let expanded = expand_tilde(directory);
-        paths.push(PathBuf::from(expanded));
-    }
-    Ok(paths)
+fn get_project_directories(directories: Vec<String>) -> Vec<PathBuf> {
+    directories
+        .iter()
+        .map(|directory| PathBuf::from(expand_tilde(directory)))
+        .collect()
 }
 
 fn get_directories(directories: Vec<String>) -> Result<Vec<PathBuf>, Box<dyn Error>> {
@@ -268,7 +265,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         .chain(cli.projects)
         .collect();
 
-    let project_paths = get_project_directories(projects)?;
+    let project_paths = get_project_directories(projects);
     let project_dir_paths = get_directories(directories)?;
 
     let mut seen: HashSet<PathBuf> = HashSet::new();
