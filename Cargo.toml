@@ -10,7 +10,6 @@ description = "A blazingly fast tmux session launcher and switcher"
 [dependencies]
 clap = { version = "4.3.22", features = ["derive"] }
 console = "0.15.7"
-rust_fzf = "0.1.2"
 regex = "1"
 serde = { version = "1", features = ["derive"] }
 toml = "0.8"

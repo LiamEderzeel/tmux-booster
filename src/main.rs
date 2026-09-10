@@ -1,5 +1,4 @@
 use clap::Parser;
-// use rust_fzf::select;
 use serde::Deserialize;
 use std::collections::HashSet;
 use std::error::Error;
@@ -315,7 +314,6 @@ fn main() {
     };
     let display_options =
         display_options_from_options(options.clone(), &live_sessions, &attach_session_name);
-    // let selection = select(display_options.clone(), vec!["--ansi".to_string()]);
     let selection = match select_with_tv(display_options.clone()) {
         Some(s) => s,
         None => {
