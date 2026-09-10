@@ -295,14 +295,18 @@ fn main() {
         Err(error) => panic!("help {}", error),
     };
 
+    let mut seen: HashSet<PathBuf> = HashSet::new();
     let paths: Vec<PathBuf> = project_paths
         .into_iter()
         .chain(project_dir_paths)
-        .collect::<HashSet<_>>()
-        .into_iter()
+        .filter(|p| seen.insert(p.clone()))
         .collect();
 
     let options = options_from_path(paths.clone());
+    let mut order: Vec<usize> = (0..options.len()).collect();
+    order.sort_by_key(|&i| options[i].to_lowercase());
+    let paths: Vec<PathBuf> = order.iter().map(|&i| paths[i].clone()).collect();
+    let options: Vec<String> = order.iter().map(|&i| options[i].clone()).collect();
 
     let live_sessions = match tmux_list_sessions() {
         Ok(list) => list,
