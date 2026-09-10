@@ -230,7 +230,7 @@ fn display_options_from_options(
             if attach_session_name == &target {
                 return format!("[33m{t}[0m", t = r);
             } else if live_sessions.contains(&target) {
-                return format!("[34m{t}[0m", t = r);
+                return format!("[32m{t}[0m", t = r);
             } else {
                 return r;
             }
