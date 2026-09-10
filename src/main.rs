@@ -2,6 +2,7 @@ use clap::Parser;
 use serde::Deserialize;
 use std::collections::HashSet;
 use std::error::Error;
+use std::ffi::OsStr;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
@@ -151,51 +152,32 @@ fn tmux_target_name(name: &str) -> String {
     name.replace('.', "_")
 }
 
-fn tmux_create_session(name: &str, path: &PathBuf) {
-    let tmux_name = tmux_target_name(name);
-    match Command::new("tmux")
-        .arg("new-session")
-        .arg("-ds")
-        .arg(&tmux_name)
-        .arg("-c")
-        .arg(path)
-        .spawn()
-        .unwrap()
-        .wait()
-    {
+fn run_tmux(args: &[&OsStr]) {
+    match Command::new("tmux").args(args).spawn().unwrap().wait() {
         Ok(_) => (),
         Err(error) => panic!("help {:?}", error),
     }
+}
+
+fn tmux_create_session(name: &str, path: &PathBuf) {
+    let tmux_name = tmux_target_name(name);
+    run_tmux(&[
+        OsStr::new("new-session"),
+        OsStr::new("-ds"),
+        OsStr::new(&tmux_name),
+        OsStr::new("-c"),
+        path.as_os_str(),
+    ]);
 }
 
 fn tmux_swith_session(name: &str) {
     let tmux_name = tmux_target_name(name);
-    match Command::new("tmux")
-        .arg("switch")
-        .arg("-t")
-        .arg(&tmux_name)
-        .spawn()
-        .unwrap()
-        .wait()
-    {
-        Ok(_) => (),
-        Err(error) => panic!("help {:?}", error),
-    }
+    run_tmux(&[OsStr::new("switch"), OsStr::new("-t"), OsStr::new(&tmux_name)]);
 }
 
 fn tmux_attach_session(name: &str) {
     let tmux_name = tmux_target_name(name);
-    match Command::new("tmux")
-        .arg("attach")
-        .arg("-t")
-        .arg(&tmux_name)
-        .spawn()
-        .unwrap()
-        .wait()
-    {
-        Ok(_) => (),
-        Err(error) => panic!("help {:?}", error),
-    }
+    run_tmux(&[OsStr::new("attach"), OsStr::new("-t"), OsStr::new(&tmux_name)]);
 }
 
 fn options_from_path(paths: Vec<PathBuf>) -> Vec<String> {
