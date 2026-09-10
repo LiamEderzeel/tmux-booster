@@ -268,7 +268,7 @@ fn select_with_tv(items: Vec<String>) -> Option<String> {
     }
 }
 
-fn main() {
+fn main() -> Result<(), Box<dyn Error>> {
     let cli = Cli::parse();
     let config = load_config();
 
@@ -285,15 +285,8 @@ fn main() {
         .chain(cli.projects)
         .collect();
 
-    let project_paths = match get_project_directories(projects) {
-        Ok(paths) => paths,
-        Err(error) => panic!("help {}", error),
-    };
-
-    let project_dir_paths = match get_directories(directories) {
-        Ok(paths) => paths,
-        Err(error) => panic!("help {}", error),
-    };
+    let project_paths = get_project_directories(projects)?;
+    let project_dir_paths = get_directories(directories)?;
 
     let mut seen: HashSet<PathBuf> = HashSet::new();
     let paths: Vec<PathBuf> = project_paths
@@ -308,14 +301,8 @@ fn main() {
     let paths: Vec<PathBuf> = order.iter().map(|&i| paths[i].clone()).collect();
     let options: Vec<String> = order.iter().map(|&i| options[i].clone()).collect();
 
-    let live_sessions = match tmux_list_sessions() {
-        Ok(list) => list,
-        Err(error) => panic!("help {}", error),
-    };
-    let attach_session_name = match tmux_attached_session_name() {
-        Ok(attach_session_name) => attach_session_name,
-        Err(error) => panic!("help {}", error),
-    };
+    let live_sessions = tmux_list_sessions()?;
+    let attach_session_name = tmux_attached_session_name()?;
     let display_options =
         display_options_from_options(options.clone(), &live_sessions, &attach_session_name);
     let selection = match select_with_tv(display_options.clone()) {
@@ -358,4 +345,6 @@ fn main() {
     } else {
         tmux_attach_session(project_name);
     }
+
+    Ok(())
 }
