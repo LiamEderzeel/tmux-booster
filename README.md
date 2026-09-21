@@ -36,6 +36,14 @@ project_paths = [
 ]
 ```
 
+### `tv`
+
+tmux-booster picks projects using an embedded [skim](https://github.com/skim-rs/skim) fuzzy finder by default. Set this to use the external [`tv`](https://github.com/alexpasmantier/television) binary instead (must be installed separately and available on `PATH`).
+
+```toml
+tv = true
+```
+
 ---
 
 ## Full example
@@ -51,6 +59,8 @@ project_paths = [
     "~/dotfiles",
     "~/projects/special-repo",
 ]
+
+tv = true
 ```
 
 ---
@@ -59,10 +69,11 @@ project_paths = [
 
 Both lists can also be provided or extended via CLI flags:
 
-| Flag | Description                                        |
-| ---- | -------------------------------------------------- |
-| `-d` | Path to a directory containing project directories |
-| `-p` | Path to a direct project directory                 |
+| Flag   | Description                                                 |
+| ------ | ------------------------------------------------------------ |
+| `-d`   | Path to a directory containing project directories          |
+| `-p`   | Path to a direct project directory                          |
+| `--tv` | Use the external `tv` binary instead of the embedded picker |
 
 Flags can be repeated to pass multiple values:
 
@@ -72,7 +83,7 @@ tmux-booster -d ~/projects -d ~/work -p ~/dotfiles
 
 ### Merging config and CLI
 
-If both a config file and CLI arguments are provided, they are merged. The config file acts as a persistent baseline and CLI arguments are appended on top. Duplicates are automatically removed.
+If both a config file and CLI arguments are provided, they are merged. The config file acts as a persistent baseline and CLI arguments are appended on top. Duplicates are automatically removed. For the `tv` flag, either source setting it to `true` enables it.
 
 ---
 

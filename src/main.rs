@@ -1,9 +1,13 @@
 use clap::Parser;
 use serde::Deserialize;
+use skim::prelude::{Skim, SkimItemReader, SkimItemReaderOption, SkimOptionsBuilder};
+use skim::tui::options::TuiLayout;
+use skim::tui::statusline::InfoDisplay;
+use skim::tui::BorderType;
 use std::collections::HashSet;
 use std::error::Error;
 use std::ffi::OsStr;
-use std::io::Write;
+use std::io::{Cursor, Write};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::{env, fs};
@@ -14,6 +18,8 @@ struct Config {
     directory_paths: Vec<String>,
     #[serde(default)]
     project_paths: Vec<String>,
+    #[serde(default)]
+    tv: bool,
 }
 
 fn load_config() -> Config {
@@ -63,6 +69,12 @@ struct Cli {
 
     #[arg(short = 'p', help = "path or paths to project directory.")]
     projects: Vec<String>,
+
+    #[arg(
+        long,
+        help = "use the external tv binary instead of the embedded skim picker"
+    )]
+    tv: bool,
 }
 
 fn expand_tilde(path: &str) -> String {
@@ -248,9 +260,43 @@ fn select_with_tv(items: Vec<String>) -> Option<String> {
     }
 }
 
+// Mirrors tv's default look: rounded border, prompt-on-top layout, and tv's
+// palette re-created from terminal-native ANSI indices (8 gray, 2 green,
+// 9 red, 10 bright green, 12 bright blue) instead of skim's own theme.
+const TV_LIKE_COLORS: &str =
+    "border:8,header:2:bold,prompt:9:bold,info:9:italic,fg+:10,bg+:8,hl+:10,hl:12,normal:12,cursor:-1,selected:-1";
+
+fn select_with_skim(items: Vec<String>) -> Option<String> {
+    let options = SkimOptionsBuilder::default()
+        .header("Projects")
+        .border(BorderType::Rounded)
+        .layout(TuiLayout::Reverse)
+        .info(InfoDisplay::InlineRight)
+        .color(TV_LIKE_COLORS)
+        .build()
+        .expect("failed to build skim options");
+
+    let reader_option = SkimItemReaderOption::default().ansi(true).build();
+    let source = SkimItemReader::new(reader_option).of_bufread(Cursor::new(items.join("\n").into_bytes()));
+
+    let output = Skim::run_with(options, Some(source)).ok()?;
+
+    if output.is_abort {
+        return None;
+    }
+
+    output
+        .selected_items
+        .first()
+        .map(|item| item.output().to_string())
+}
+
 fn main() -> Result<(), Box<dyn Error>> {
     let cli = Cli::parse();
     let config = load_config();
+
+    // Bool flags: true in either config or CLI wins
+    let use_tv = config.tv || cli.tv;
 
     // Merge: config provides the base, CLI args are appended
     let directories: Vec<String> = config
@@ -285,7 +331,11 @@ fn main() -> Result<(), Box<dyn Error>> {
     let attach_session_name = tmux_attached_session_name()?;
     let display_options =
         display_options_from_options(options.clone(), &live_sessions, &attach_session_name);
-    let selection = match select_with_tv(display_options.clone()) {
+    let selection = match if use_tv {
+        select_with_tv(display_options.clone())
+    } else {
+        select_with_skim(display_options.clone())
+    } {
         Some(s) => s,
         None => {
             println!("no selection made");
