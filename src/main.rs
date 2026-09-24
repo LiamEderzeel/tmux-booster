@@ -113,22 +113,11 @@ fn get_directories(directories: Vec<String>) -> Result<Vec<PathBuf>, Box<dyn Err
 fn tmux_attached_session_name() -> Result<String, Box<dyn Error>> {
     // tmux display-message -p '#S'
     let output = Command::new("tmux")
-        .arg("display-message")
-        .arg("-p")
-        .arg("#S")
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()?
-        .wait_with_output()?;
+        .args(["display-message", "-p", "#S"])
+        .output()?;
 
     let raw_output = String::from_utf8_lossy(&output.stdout);
-    let mut res = raw_output.to_string();
-
-    let len = res.trim_end_matches(&['\r', '\n'][..]).len();
-
-    res.truncate(len);
-
-    Ok(res)
+    Ok(raw_output.trim_end_matches(['\r', '\n']).to_string())
 }
 
 fn tmux_is_attached() -> bool {
@@ -137,13 +126,8 @@ fn tmux_is_attached() -> bool {
 
 fn tmux_list_sessions() -> Result<Vec<String>, Box<dyn Error>> {
     let output = Command::new("tmux")
-        .arg("list-session")
-        .arg("-F")
-        .arg("#S")
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()?
-        .wait_with_output()?;
+        .args(["list-session", "-F", "#S"])
+        .output()?;
 
     let raw_output = String::from_utf8_lossy(&output.stdout);
     let res = raw_output
