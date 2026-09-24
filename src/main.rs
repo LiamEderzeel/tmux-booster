@@ -306,7 +306,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         select_with_skim(display_options)
     };
     let Some(selection) = selection else {
-        println!("no selection made");
+        eprintln!("no selection made");
         std::process::exit(1);
     };
 
@@ -315,7 +315,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let Some((project_name, project_path)) =
         entries.iter().find(|(name, _)| *name == clean_selection)
     else {
-        println!("no index found for selected option");
+        eprintln!("no index found for selected option");
         std::process::exit(1)
     };
 
