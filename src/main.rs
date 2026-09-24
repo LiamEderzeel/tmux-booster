@@ -212,11 +212,13 @@ fn display_options_from_options(
         .collect()
 }
 
-fn select_with_tv(items: Vec<String>) -> Option<String> {
+fn select_with_tv(items: Vec<String>) -> Result<Option<String>, Box<dyn Error>> {
+    // tv needs a --source-command for --ansi and friends to be accepted in
+    // ad-hoc mode, but piped stdin takes precedence, so the command never runs.
     let mut child = Command::new("tv")
         .arg("--ansi")
         .arg("--source-command")
-        .arg("echo placeholder") // we'll override via stdin piping trick
+        .arg("echo placeholder")
         .arg("--input-header")
         .arg("Projects")
         .arg("--no-status-bar")
@@ -224,7 +226,7 @@ fn select_with_tv(items: Vec<String>) -> Option<String> {
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .spawn()
-        .expect("failed to start tv");
+        .map_err(|e| format!("failed to start tv (is it installed and on PATH?): {}", e))?;
 
     // write items to stdin
     if let Some(mut stdin) = child.stdin.take() {
@@ -233,14 +235,10 @@ fn select_with_tv(items: Vec<String>) -> Option<String> {
         }
     }
 
-    let output = child.wait_with_output().expect("failed to wait on tv");
+    let output = child.wait_with_output()?;
     let result = String::from_utf8_lossy(&output.stdout).trim().to_string();
 
-    if result.is_empty() {
-        None
-    } else {
-        Some(result)
-    }
+    Ok((!result.is_empty()).then_some(result))
 }
 
 // Mirrors tv's default look: rounded border, prompt-on-top layout, and tv's
@@ -311,7 +309,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let names: Vec<String> = entries.iter().map(|(name, _)| name.clone()).collect();
     let display_options = display_options_from_options(names, &live_sessions, &attach_session_name);
     let selection = if use_tv {
-        select_with_tv(display_options)
+        select_with_tv(display_options)?
     } else {
         select_with_skim(display_options)
     };
