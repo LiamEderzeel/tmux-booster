@@ -95,19 +95,18 @@ fn get_project_directories(directories: Vec<String>) -> Vec<PathBuf> {
 }
 
 fn get_directories(directories: Vec<String>) -> Result<Vec<PathBuf>, Box<dyn Error>> {
-    let mut paths: Vec<Vec<PathBuf>> = vec![];
+    let mut paths = vec![];
     for directory in &directories {
         let expanded = expand_tilde(directory);
-        let res = fs::read_dir(Path::new(&expanded)).map_err(|e| format!("{} {}", e, expanded))?; // better error message
-        paths.push(
-            res.into_iter()
-                .filter(|r| r.is_ok())
-                .map(|r| r.unwrap().path())
-                .filter(|r| r.is_dir())
-                .collect(),
+        let entries = fs::read_dir(&expanded).map_err(|e| format!("{} {}", e, expanded))?; // better error message
+        paths.extend(
+            entries
+                .filter_map(Result::ok)
+                .map(|entry| entry.path())
+                .filter(|path| path.is_dir()),
         );
     }
-    Ok(paths.into_iter().flatten().collect())
+    Ok(paths)
 }
 
 fn tmux_attached_session_name() -> Result<String, Box<dyn Error>> {
