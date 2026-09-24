@@ -8,7 +8,7 @@ use skim::tui::BorderType;
 use std::collections::HashSet;
 use std::error::Error;
 use std::ffi::OsStr;
-use std::io::{Cursor, Write};
+use std::io::{self, Cursor, Write};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::{env, fs};
@@ -163,32 +163,32 @@ fn tmux_target_name(name: &str) -> String {
     name.replace('.', "_")
 }
 
-fn run_tmux(args: &[&OsStr]) {
-    match Command::new("tmux").args(args).spawn().unwrap().wait() {
-        Ok(_) => (),
-        Err(error) => panic!("help {:?}", error),
-    }
+fn run_tmux<I, S>(args: I) -> io::Result<()>
+where
+    I: IntoIterator<Item = S>,
+    S: AsRef<OsStr>,
+{
+    Command::new("tmux").args(args).status()?;
+    Ok(())
 }
 
-fn tmux_create_session(name: &str, path: &PathBuf) {
+fn tmux_create_session(name: &str, path: &Path) -> io::Result<()> {
     let tmux_name = tmux_target_name(name);
-    run_tmux(&[
+    run_tmux([
         OsStr::new("new-session"),
         OsStr::new("-ds"),
         OsStr::new(&tmux_name),
         OsStr::new("-c"),
         path.as_os_str(),
-    ]);
+    ])
 }
 
-fn tmux_swith_session(name: &str) {
-    let tmux_name = tmux_target_name(name);
-    run_tmux(&[OsStr::new("switch"), OsStr::new("-t"), OsStr::new(&tmux_name)]);
+fn tmux_swith_session(name: &str) -> io::Result<()> {
+    run_tmux(["switch", "-t", &tmux_target_name(name)])
 }
 
-fn tmux_attach_session(name: &str) {
-    let tmux_name = tmux_target_name(name);
-    run_tmux(&[OsStr::new("attach"), OsStr::new("-t"), OsStr::new(&tmux_name)]);
+fn tmux_attach_session(name: &str) -> io::Result<()> {
+    run_tmux(["attach", "-t", &tmux_target_name(name)])
 }
 
 fn project_name(path: &Path) -> String {
@@ -348,14 +348,14 @@ fn main() -> Result<(), Box<dyn Error>> {
     let is_attached = tmux_is_attached();
 
     if !live_sessions.contains(&tmux_target_name(project_name)) {
-        tmux_create_session(project_name, project_path);
+        tmux_create_session(project_name, project_path)?;
     }
 
     println!("{}", is_attached);
     if is_attached {
-        tmux_swith_session(project_name);
+        tmux_swith_session(project_name)?;
     } else {
-        tmux_attach_session(project_name);
+        tmux_attach_session(project_name)?;
     }
 
     Ok(())
