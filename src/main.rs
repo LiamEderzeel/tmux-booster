@@ -61,8 +61,12 @@ Configuration file:
         \"~/projects/my-app\",
     ]
 
+    # use the external tv binary instead of the embedded picker
+    tv = true
+
   CLI args are merged with the config file. Duplicates are removed.
-  See CONFIG.md for full documentation."
+  tv is enabled if either the config or --tv sets it.
+  See README.md for full documentation."
 )]
 struct Cli {
     #[arg(
