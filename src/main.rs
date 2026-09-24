@@ -345,3 +345,105 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn project_name_uses_parent_and_file_name() {
+        assert_eq!(project_name(Path::new("/home/me/projects/app")), "projects/app");
+        assert_eq!(project_name(Path::new("/home/me/dotfiles/")), "me/dotfiles");
+    }
+
+    #[test]
+    fn project_name_does_not_panic_near_root() {
+        assert_eq!(project_name(Path::new("/foo")), "/foo");
+        assert_eq!(project_name(Path::new("/")), "/");
+    }
+
+    #[test]
+    fn expand_tilde_replaces_home_prefix() {
+        assert_eq!(expand_tilde("~/projects"), home_dir().join("projects"));
+    }
+
+    #[test]
+    fn expand_tilde_leaves_other_paths_alone() {
+        assert_eq!(expand_tilde("/abs/path"), PathBuf::from("/abs/path"));
+        assert_eq!(expand_tilde("relative"), PathBuf::from("relative"));
+        assert_eq!(expand_tilde("~"), PathBuf::from("~"));
+    }
+
+    #[test]
+    fn tmux_target_name_replaces_dots() {
+        assert_eq!(tmux_target_name("work/my.app"), "work/my_app");
+        assert_eq!(tmux_target_name("work/app"), "work/app");
+    }
+
+    #[test]
+    fn colorize_names_marks_attached_and_live_sessions() {
+        let names = vec![
+            "a/attached".to_string(),
+            "a/live.dot".to_string(),
+            "a/idle".to_string(),
+        ];
+        let live = vec!["a/attached".to_string(), "a/live_dot".to_string()];
+
+        let colored = colorize_names(names.clone(), &live, "a/attached");
+
+        assert_eq!(colored[0], style("a/attached").yellow().force_styling(true).to_string());
+        assert_eq!(colored[1], style("a/live.dot").green().force_styling(true).to_string());
+        assert_eq!(colored[2], "a/idle");
+        assert_ne!(colored[0], names[0]);
+        assert_ne!(colored[1], names[1]);
+        // The selection is matched back to a project after stripping colors.
+        for (colored, name) in colored.iter().zip(&names) {
+            assert_eq!(strip_ansi_codes(colored), name.as_str());
+        }
+    }
+
+    // Creates an empty, unique scratch directory under the system temp dir.
+    fn scratch_dir(name: &str) -> PathBuf {
+        let dir = env::temp_dir().join(format!("tmux-booster-{}-{}", name, std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).unwrap();
+        dir
+    }
+
+    #[test]
+    fn collect_projects_merges_dedupes_and_sorts() {
+        let root = scratch_dir("collect");
+        fs::create_dir_all(root.join("dirs/Beta")).unwrap();
+        fs::create_dir_all(root.join("dirs/alpha")).unwrap();
+        fs::write(root.join("dirs/not-a-dir.txt"), "").unwrap();
+        fs::create_dir_all(root.join("other/proj")).unwrap();
+
+        let directories = vec![root.join("dirs").to_string_lossy().into_owned()];
+        let projects = vec![
+            root.join("other/proj").to_string_lossy().into_owned(),
+            // Also found via `directories`; should only appear once.
+            root.join("dirs/alpha").to_string_lossy().into_owned(),
+        ];
+
+        let entries = collect_projects(&directories, &projects).unwrap();
+        fs::remove_dir_all(&root).unwrap();
+
+        assert_eq!(
+            entries,
+            vec![
+                ("dirs/alpha".to_string(), root.join("dirs/alpha")),
+                ("dirs/Beta".to_string(), root.join("dirs/Beta")),
+                ("other/proj".to_string(), root.join("other/proj")),
+            ]
+        );
+    }
+
+    #[test]
+    fn collect_projects_errors_on_missing_directory() {
+        let root = scratch_dir("missing");
+        let missing = root.join("does-not-exist").to_string_lossy().into_owned();
+        fs::remove_dir_all(&root).unwrap();
+
+        assert!(collect_projects(&[missing], &[]).is_err());
+    }
+}
