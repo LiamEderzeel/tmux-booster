@@ -212,7 +212,7 @@ fn display_options_from_options(
         .collect()
 }
 
-fn select_with_tv(items: Vec<String>) -> Result<Option<String>, Box<dyn Error>> {
+fn select_with_tv(items: &[String]) -> Result<Option<String>, Box<dyn Error>> {
     // tv needs a --source-command for --ansi and friends to be accepted in
     // ad-hoc mode, but piped stdin takes precedence, so the command never runs.
     let mut child = Command::new("tv")
@@ -230,7 +230,7 @@ fn select_with_tv(items: Vec<String>) -> Result<Option<String>, Box<dyn Error>> 
 
     // write items to stdin
     if let Some(mut stdin) = child.stdin.take() {
-        for item in &items {
+        for item in items {
             writeln!(stdin, "{}", item).ok();
         }
     }
@@ -247,7 +247,7 @@ fn select_with_tv(items: Vec<String>) -> Result<Option<String>, Box<dyn Error>> 
 const TV_LIKE_COLORS: &str =
     "border:8,header:2:bold,prompt:9:bold,info:9:italic,fg+:10,bg+:8,hl+:10,hl:12,normal:12,cursor:-1,selected:-1";
 
-fn select_with_skim(items: Vec<String>) -> Option<String> {
+fn select_with_skim(items: &[String]) -> Option<String> {
     let options = SkimOptionsBuilder::default()
         .header("Projects")
         .border(BorderType::Rounded)
@@ -309,9 +309,9 @@ fn main() -> Result<(), Box<dyn Error>> {
     let names: Vec<String> = entries.iter().map(|(name, _)| name.clone()).collect();
     let display_options = display_options_from_options(names, &live_sessions, &attach_session_name);
     let selection = if use_tv {
-        select_with_tv(display_options)?
+        select_with_tv(&display_options)?
     } else {
-        select_with_skim(display_options)
+        select_with_skim(&display_options)
     };
     let Some(selection) = selection else {
         eprintln!("no selection made");
