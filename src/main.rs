@@ -92,8 +92,18 @@ fn expand_tilde(path: &str) -> PathBuf {
     }
 }
 
-fn expand_paths(paths: &[String]) -> Vec<PathBuf> {
-    paths.iter().map(|path| expand_tilde(path)).collect()
+fn expand_paths(paths: &[String]) -> Result<Vec<PathBuf>, Box<dyn Error>> {
+    paths
+        .iter()
+        .map(|path| {
+            let expanded = expand_tilde(path);
+            let metadata = fs::metadata(&expanded).map_err(|e| format!("{} {}", e, expanded.display()))?;
+            if !metadata.is_dir() {
+                return Err(format!("Not a directory {}", expanded.display()).into());
+            }
+            Ok(expanded)
+        })
+        .collect()
 }
 
 fn list_subdirectories(directories: &[String]) -> Result<Vec<PathBuf>, Box<dyn Error>> {
@@ -276,7 +286,7 @@ fn collect_projects(
     projects: &[String],
 ) -> Result<Vec<(String, PathBuf)>, Box<dyn Error>> {
     let mut seen: HashSet<PathBuf> = HashSet::new();
-    let mut entries: Vec<(String, PathBuf)> = expand_paths(projects)
+    let mut entries: Vec<(String, PathBuf)> = expand_paths(projects)?
         .into_iter()
         .chain(list_subdirectories(directories)?)
         .filter(|p| seen.insert(p.clone()))
@@ -445,5 +455,26 @@ mod tests {
         fs::remove_dir_all(&root).unwrap();
 
         assert!(collect_projects(&[missing], &[]).is_err());
+    }
+
+    #[test]
+    fn collect_projects_errors_on_missing_project() {
+        let root = scratch_dir("missing-project");
+        let missing = root.join("does-not-exist").to_string_lossy().into_owned();
+        fs::remove_dir_all(&root).unwrap();
+
+        assert!(collect_projects(&[], &[missing]).is_err());
+    }
+
+    #[test]
+    fn collect_projects_errors_on_project_that_is_a_file() {
+        let root = scratch_dir("file-project");
+        let file = root.join("file.txt");
+        fs::write(&file, "").unwrap();
+
+        let result = collect_projects(&[], &[file.to_string_lossy().into_owned()]);
+        fs::remove_dir_all(&root).unwrap();
+
+        assert!(result.is_err());
     }
 }
