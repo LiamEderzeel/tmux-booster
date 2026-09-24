@@ -1,4 +1,5 @@
 use clap::Parser;
+use console::{strip_ansi_codes, style};
 use serde::Deserialize;
 use skim::prelude::{Skim, SkimItemReader, SkimItemReaderOption, SkimOptionsBuilder};
 use skim::tui::options::TuiLayout;
@@ -212,12 +213,14 @@ fn display_options_from_options(
         .into_iter()
         .map(|r| {
             let target = tmux_target_name(&r);
+            // Force styling: console disables colors when stdout isn't a tty,
+            // but these strings are fed to the picker, not printed directly.
             if attach_session_name == &target {
-                return format!("[33m{t}[0m", t = r);
+                style(r).yellow().force_styling(true).to_string()
             } else if live_sessions.contains(&target) {
-                return format!("[32m{t}[0m", t = r);
+                style(r).green().force_styling(true).to_string()
             } else {
-                return r;
+                r
             }
         })
         .collect()
@@ -333,11 +336,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         }
     };
 
-    let strip_ansi = |s: &str| -> String {
-        let re = regex::Regex::new(r"\x1b\[[0-9;]*m").unwrap();
-        re.replace_all(s, "").to_string()
-    };
-    let clean_selection = strip_ansi(&selection);
+    let clean_selection = strip_ansi_codes(&selection);
 
     let Some((project_name, project_path)) =
         entries.iter().find(|(name, _)| *name == clean_selection)
