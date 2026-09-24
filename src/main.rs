@@ -87,16 +87,16 @@ fn expand_tilde(path: &str) -> String {
     }
 }
 
-fn get_project_directories(directories: Vec<String>) -> Vec<PathBuf> {
+fn get_project_directories(directories: &[String]) -> Vec<PathBuf> {
     directories
         .iter()
         .map(|directory| PathBuf::from(expand_tilde(directory)))
         .collect()
 }
 
-fn get_directories(directories: Vec<String>) -> Result<Vec<PathBuf>, Box<dyn Error>> {
+fn get_directories(directories: &[String]) -> Result<Vec<PathBuf>, Box<dyn Error>> {
     let mut paths = vec![];
-    for directory in &directories {
+    for directory in directories {
         let expanded = expand_tilde(directory);
         let entries = fs::read_dir(&expanded).map_err(|e| format!("{} {}", e, expanded))?; // better error message
         paths.extend(
@@ -190,7 +190,7 @@ fn project_name(path: &Path) -> String {
 fn display_options_from_options(
     options: Vec<String>,
     live_sessions: &[String],
-    attach_session_name: &String,
+    attach_session_name: &str,
 ) -> Vec<String> {
     options
         .into_iter()
@@ -198,7 +198,7 @@ fn display_options_from_options(
             let target = tmux_target_name(&r);
             // Force styling: console disables colors when stdout isn't a tty,
             // but these strings are fed to the picker, not printed directly.
-            if attach_session_name == &target {
+            if attach_session_name == target {
                 style(r).yellow().force_styling(true).to_string()
             } else if live_sessions.contains(&target) {
                 style(r).green().force_styling(true).to_string()
@@ -291,8 +291,8 @@ fn main() -> Result<(), Box<dyn Error>> {
         .chain(cli.projects)
         .collect();
 
-    let project_paths = get_project_directories(projects);
-    let project_dir_paths = get_directories(directories)?;
+    let project_paths = get_project_directories(&projects);
+    let project_dir_paths = get_directories(&directories)?;
 
     let mut seen: HashSet<PathBuf> = HashSet::new();
     let mut entries: Vec<(String, PathBuf)> = project_paths
