@@ -166,7 +166,7 @@ fn tmux_create_session(name: &str, path: &Path) -> io::Result<()> {
     ])
 }
 
-fn tmux_swith_session(name: &str) -> io::Result<()> {
+fn tmux_switch_session(name: &str) -> io::Result<()> {
     run_tmux(["switch", "-t", &tmux_target_name(name)])
 }
 
@@ -326,7 +326,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     }
 
     if is_attached {
-        tmux_swith_session(project_name)?;
+        tmux_switch_session(project_name)?;
     } else {
         tmux_attach_session(project_name)?;
     }
