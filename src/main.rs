@@ -190,23 +190,17 @@ fn tmux_attach_session(name: &str) {
     run_tmux(&[OsStr::new("attach"), OsStr::new("-t"), OsStr::new(&tmux_name)]);
 }
 
-fn options_from_path(paths: Vec<PathBuf>) -> Vec<String> {
-    paths
-        .into_iter()
-        .map(|r| {
-            format!(
-                "{}/{}",
-                r.parent()
-                    .unwrap()
-                    .file_name()
-                    .unwrap()
-                    .to_str()
-                    .unwrap()
-                    .to_owned(),
-                r.file_name().unwrap().to_str().unwrap().to_owned()
-            )
-        })
-        .collect()
+fn project_name(path: &Path) -> String {
+    format!(
+        "{}/{}",
+        path.parent()
+            .unwrap()
+            .file_name()
+            .unwrap()
+            .to_str()
+            .unwrap(),
+        path.file_name().unwrap().to_str().unwrap()
+    )
 }
 
 fn display_options_from_options(
@@ -315,26 +309,22 @@ fn main() -> Result<(), Box<dyn Error>> {
     let project_dir_paths = get_directories(directories)?;
 
     let mut seen: HashSet<PathBuf> = HashSet::new();
-    let paths: Vec<PathBuf> = project_paths
+    let mut entries: Vec<(String, PathBuf)> = project_paths
         .into_iter()
         .chain(project_dir_paths)
         .filter(|p| seen.insert(p.clone()))
+        .map(|p| (project_name(&p), p))
         .collect();
-
-    let options = options_from_path(paths.clone());
-    let mut order: Vec<usize> = (0..options.len()).collect();
-    order.sort_by_key(|&i| options[i].to_lowercase());
-    let paths: Vec<PathBuf> = order.iter().map(|&i| paths[i].clone()).collect();
-    let options: Vec<String> = order.iter().map(|&i| options[i].clone()).collect();
+    entries.sort_by_key(|(name, _)| name.to_lowercase());
 
     let live_sessions = tmux_list_sessions()?;
     let attach_session_name = tmux_attached_session_name()?;
-    let display_options =
-        display_options_from_options(options.clone(), &live_sessions, &attach_session_name);
+    let names: Vec<String> = entries.iter().map(|(name, _)| name.clone()).collect();
+    let display_options = display_options_from_options(names, &live_sessions, &attach_session_name);
     let selection = match if use_tv {
-        select_with_tv(display_options.clone())
+        select_with_tv(display_options)
     } else {
-        select_with_skim(display_options.clone())
+        select_with_skim(display_options)
     } {
         Some(s) => s,
         None => {
@@ -349,18 +339,11 @@ fn main() -> Result<(), Box<dyn Error>> {
     };
     let clean_selection = strip_ansi(&selection);
 
-    let project_path;
-    let project_name;
-
-    match options.iter().position(|r| r.eq(&clean_selection)) {
-        Some(index) => {
-            project_path = &paths[index];
-            project_name = &options[index];
-        }
-        _none => {
-            println!("no index found for selected option");
-            std::process::exit(1)
-        }
+    let Some((project_name, project_path)) =
+        entries.iter().find(|(name, _)| *name == clean_selection)
+    else {
+        println!("no index found for selected option");
+        std::process::exit(1)
     };
 
     let is_attached = tmux_is_attached();
