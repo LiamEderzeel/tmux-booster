@@ -269,6 +269,23 @@ fn select_with_skim(items: &[String]) -> Option<String> {
         .map(|item| item.output().to_string())
 }
 
+// Returns (name, path) pairs for every project, deduplicated by path and
+// sorted case-insensitively by name.
+fn collect_projects(
+    directories: &[String],
+    projects: &[String],
+) -> Result<Vec<(String, PathBuf)>, Box<dyn Error>> {
+    let mut seen: HashSet<PathBuf> = HashSet::new();
+    let mut entries: Vec<(String, PathBuf)> = expand_paths(projects)
+        .into_iter()
+        .chain(list_subdirectories(directories)?)
+        .filter(|p| seen.insert(p.clone()))
+        .map(|p| (project_name(&p), p))
+        .collect();
+    entries.sort_by_key(|(name, _)| name.to_lowercase());
+    Ok(entries)
+}
+
 fn main() -> Result<(), Box<dyn Error>> {
     let cli = Cli::parse();
     let config = load_config();
@@ -289,17 +306,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         .chain(cli.projects)
         .collect();
 
-    let project_paths = expand_paths(&projects);
-    let project_dir_paths = list_subdirectories(&directories)?;
-
-    let mut seen: HashSet<PathBuf> = HashSet::new();
-    let mut entries: Vec<(String, PathBuf)> = project_paths
-        .into_iter()
-        .chain(project_dir_paths)
-        .filter(|p| seen.insert(p.clone()))
-        .map(|p| (project_name(&p), p))
-        .collect();
-    entries.sort_by_key(|(name, _)| name.to_lowercase());
+    let entries = collect_projects(&directories, &projects)?;
 
     let live_sessions = tmux_list_sessions()?;
     let attach_session_name = tmux_attached_session_name()?;
