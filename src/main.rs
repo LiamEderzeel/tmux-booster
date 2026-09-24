@@ -152,7 +152,12 @@ where
     I: IntoIterator<Item = S>,
     S: AsRef<OsStr>,
 {
-    Command::new("tmux").args(args).status()?;
+    let mut command = Command::new("tmux");
+    command.args(args);
+    let status = command.status()?;
+    if !status.success() {
+        return Err(io::Error::other(format!("{:?} failed: {}", command, status)));
+    }
     Ok(())
 }
 
