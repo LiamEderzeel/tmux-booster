@@ -23,9 +23,12 @@ struct Config {
     tv: bool,
 }
 
+fn home_dir() -> PathBuf {
+    PathBuf::from(env::var_os("HOME").expect("HOME not set"))
+}
+
 fn load_config() -> Config {
-    let config_path = PathBuf::from(std::env::var("HOME").expect("HOME not set"))
-        .join(".config/tmux-booster/config.toml");
+    let config_path = home_dir().join(".config/tmux-booster/config.toml");
 
     let Ok(contents) = fs::read_to_string(&config_path) else {
         return Config::default();
@@ -78,19 +81,17 @@ struct Cli {
     tv: bool,
 }
 
-fn expand_tilde(path: &str) -> String {
-    if let Some(stripped) = path.strip_prefix("~/") {
-        let home = std::env::var("HOME").expect("HOME not set");
-        format!("{}/{}", home, stripped)
-    } else {
-        path.to_string()
+fn expand_tilde(path: &str) -> PathBuf {
+    match path.strip_prefix("~/") {
+        Some(stripped) => home_dir().join(stripped),
+        None => PathBuf::from(path),
     }
 }
 
 fn get_project_directories(directories: &[String]) -> Vec<PathBuf> {
     directories
         .iter()
-        .map(|directory| PathBuf::from(expand_tilde(directory)))
+        .map(|directory| expand_tilde(directory))
         .collect()
 }
 
@@ -98,7 +99,7 @@ fn get_directories(directories: &[String]) -> Result<Vec<PathBuf>, Box<dyn Error
     let mut paths = vec![];
     for directory in directories {
         let expanded = expand_tilde(directory);
-        let entries = fs::read_dir(&expanded).map_err(|e| format!("{} {}", e, expanded))?; // better error message
+        let entries = fs::read_dir(&expanded).map_err(|e| format!("{} {}", e, expanded.display()))?; // better error message
         paths.extend(
             entries
                 .filter_map(Result::ok)
