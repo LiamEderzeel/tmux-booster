@@ -92,14 +92,11 @@ fn expand_tilde(path: &str) -> PathBuf {
     }
 }
 
-fn get_project_directories(directories: &[String]) -> Vec<PathBuf> {
-    directories
-        .iter()
-        .map(|directory| expand_tilde(directory))
-        .collect()
+fn expand_paths(paths: &[String]) -> Vec<PathBuf> {
+    paths.iter().map(|path| expand_tilde(path)).collect()
 }
 
-fn get_directories(directories: &[String]) -> Result<Vec<PathBuf>, Box<dyn Error>> {
+fn list_subdirectories(directories: &[String]) -> Result<Vec<PathBuf>, Box<dyn Error>> {
     let mut paths = vec![];
     for directory in directories {
         let expanded = expand_tilde(directory);
@@ -190,23 +187,23 @@ fn project_name(path: &Path) -> String {
     format!("{}/{}", parent, file_name(path))
 }
 
-fn display_options_from_options(
-    options: Vec<String>,
+fn colorize_names(
+    names: Vec<String>,
     live_sessions: &[String],
     attach_session_name: &str,
 ) -> Vec<String> {
-    options
+    names
         .into_iter()
-        .map(|r| {
-            let target = tmux_target_name(&r);
+        .map(|name| {
+            let target = tmux_target_name(&name);
             // Force styling: console disables colors when stdout isn't a tty,
             // but these strings are fed to the picker, not printed directly.
             if attach_session_name == target {
-                style(r).yellow().force_styling(true).to_string()
+                style(name).yellow().force_styling(true).to_string()
             } else if live_sessions.contains(&target) {
-                style(r).green().force_styling(true).to_string()
+                style(name).green().force_styling(true).to_string()
             } else {
-                r
+                name
             }
         })
         .collect()
@@ -292,8 +289,8 @@ fn main() -> Result<(), Box<dyn Error>> {
         .chain(cli.projects)
         .collect();
 
-    let project_paths = get_project_directories(&projects);
-    let project_dir_paths = get_directories(&directories)?;
+    let project_paths = expand_paths(&projects);
+    let project_dir_paths = list_subdirectories(&directories)?;
 
     let mut seen: HashSet<PathBuf> = HashSet::new();
     let mut entries: Vec<(String, PathBuf)> = project_paths
@@ -307,7 +304,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let live_sessions = tmux_list_sessions()?;
     let attach_session_name = tmux_attached_session_name()?;
     let names: Vec<String> = entries.iter().map(|(name, _)| name.clone()).collect();
-    let display_options = display_options_from_options(names, &live_sessions, &attach_session_name);
+    let display_options = colorize_names(names, &live_sessions, &attach_session_name);
     let selection = if use_tv {
         select_with_tv(&display_options)?
     } else {
