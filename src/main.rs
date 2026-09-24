@@ -175,16 +175,9 @@ fn tmux_attach_session(name: &str) -> io::Result<()> {
 }
 
 fn project_name(path: &Path) -> String {
-    format!(
-        "{}/{}",
-        path.parent()
-            .unwrap()
-            .file_name()
-            .unwrap()
-            .to_str()
-            .unwrap(),
-        path.file_name().unwrap().to_str().unwrap()
-    )
+    let file_name = |p: &Path| p.file_name().unwrap_or_default().to_string_lossy().into_owned();
+    let parent = path.parent().map(file_name).unwrap_or_default();
+    format!("{}/{}", parent, file_name(path))
 }
 
 fn display_options_from_options(
