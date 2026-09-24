@@ -351,7 +351,6 @@ fn main() -> Result<(), Box<dyn Error>> {
         tmux_create_session(project_name, project_path)?;
     }
 
-    println!("{}", is_attached);
     if is_attached {
         tmux_swith_session(project_name)?;
     } else {
