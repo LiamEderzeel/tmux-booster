@@ -300,16 +300,14 @@ fn main() -> Result<(), Box<dyn Error>> {
     let attach_session_name = tmux_attached_session_name()?;
     let names: Vec<String> = entries.iter().map(|(name, _)| name.clone()).collect();
     let display_options = display_options_from_options(names, &live_sessions, &attach_session_name);
-    let selection = match if use_tv {
+    let selection = if use_tv {
         select_with_tv(display_options)
     } else {
         select_with_skim(display_options)
-    } {
-        Some(s) => s,
-        None => {
-            println!("no selection made");
-            std::process::exit(1);
-        }
+    };
+    let Some(selection) = selection else {
+        println!("no selection made");
+        std::process::exit(1);
     };
 
     let clean_selection = strip_ansi_codes(&selection);
