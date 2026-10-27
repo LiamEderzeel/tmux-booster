@@ -184,7 +184,7 @@ fn tmux_create_session(name: &str, path: &Path) -> io::Result<()> {
 }
 
 fn tmux_switch_session(name: &str) -> io::Result<()> {
-    run_tmux(["switch", "-t", &tmux_target_name(name)])
+    run_tmux(["switch-client", "-t", &tmux_target_name(name)])
 }
 
 fn tmux_attach_session(name: &str) -> io::Result<()> {
